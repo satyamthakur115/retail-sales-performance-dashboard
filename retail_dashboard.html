@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retail Sales Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1f2d45;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #a78bfa;
+    --green: #10b981;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 20% 20%, rgba(0,212,255,0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(167,139,250,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .header {
+    padding: 28px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+    background: rgba(10,14,26,0.8);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+  }
+
+  .header-left h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header-left p {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent);
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* SQL Section */
+  .sql-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+
+  .sql-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .sql-tab {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    padding: 12px 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+
+  .sql-tab:hover { color: var(--text); background: var(--surface2); }
+  .sql-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .sql-content { display: none; padding: 20px; }
+  .sql-content.active { display: block; }
+
+  pre {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: #a8d8ea;
+    background: #070c14;
+    padding: 16px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .kw { color: #ff79c6; }
+  .fn { color: #50fa7b; }
+  .str { color: #f1fa8c; }
+  .cm { color: #6272a4; }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .kpi-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .kpi-card.blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .kpi-card.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+
+  .kpi-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .kpi-value {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .kpi-card.blue .kpi-value { color: var(--accent); }
+  .kpi-card.orange .kpi-value { color: var(--accent2); }
+  .kpi-card.purple .kpi-value { color: var(--accent3); }
+  .kpi-card.green .kpi-value { color: var(--green); }
+
+  .kpi-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .kpi-trend {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 8px;
+  }
+
+  .trend-up { background: rgba(16,185,129,0.15); color: var(--green); }
+  .trend-mid { background: rgba(0,212,255,0.1); color: var(--accent); }
+
+  /* Charts Grid */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .chart-card.wide {
+    grid-column: span 2;
+  }
+
+  .chart-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .chart-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.67rem;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .chart-wrapper {
+    position: relative;
+    height: 260px;
+  }
+
+  .chart-wrapper.tall { height: 300px; }
+
+  /* Region Table */
+  .region-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  thead th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.67rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: left;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(31,45,69,0.5);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody td {
+    padding: 11px 8px 11px 0;
+  }
+
+  .rank {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    width: 24px;
+  }
+
+  .product-name { font-weight: 600; }
+
+  .revenue-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .revenue-bar {
+    height: 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .margin-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .margin-high { background: rgba(16,185,129,0.15); color: var(--green); }
+  .margin-mid { background: rgba(0,212,255,0.1); color: var(--accent); }
+  .margin-low { background: rgba(255,107,53,0.1); color: var(--accent2); }
+
+  .region-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+    .chart-card.wide { grid-column: span 1; }
+    .region-grid { grid-template-columns: 1fr; }
+    .container { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <h1>Retail Sales Performance & Profitability Analysis</h1>
+    <p>FY 2024 · MySQL / SQL Server · Dashboard View</p>
+  </div>
+  <span class="badge">▶ LIVE DATASET</span>
+</header>
+
+<div class="container">
+
+  <!-- SQL Queries Section -->
+  <div class="sql-section">
+    <div class="sql-tabs">
+      <button class="sql-tab active" onclick="switchTab(this,'q1')">Total Revenue & Profit</button>
+      <button class="sql-tab" onclick="switchTab(this,'q2')">Top 5 Products</button>
+      <button class="sql-tab" onclick="switchTab(this,'q3')">Monthly Trend</button>
+      <button class="sql-tab" onclick="switchTab(this,'q4')">Profit Margin by Category</button>
+    </div>
+    <div id="q1" class="sql-content active">
+      <pre><span class="cm">-- Total Revenue & Profit</span>
+<span class="kw">SELECT</span>
+    <span class="fn">SUM</span>(Sales)         <span class="kw">AS</span> Total_Revenue,
+    <span class="fn">SUM</span>(Sales - Cost)  <span class="kw">AS</span> Total_Profit,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(Sales - Cost) / <span class="fn">SUM</span>(Sales) * 100, 2) <span class="kw">AS</span> Overall_Margin
+<span class="kw">FROM</span> retail_sales;
+
+<span class="cm">-- Result: Revenue = $2,847,350  |  Profit = $1,024,647  |  Margin = 35.99%</span></pre>
+    </div>
+    <div id="q2" class="sql-content">
+      <pre><span class="cm">-- Top 5 Products by Revenue</span>
+<span class="kw">SELECT</span>
+    Product_Name,
+    <span class="fn">SUM</span>(Sales)        <span class="kw">AS</span> Revenue,
+    <span class="fn">SUM</span>(Sales - Cost) <span class="kw">AS</span> Profit
+<span class="kw">FROM</span> retail_sales
+<span class="kw">GROUP BY</span> Product_Name
+<span class="kw">ORDER BY</span> Revenue <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> 5;
+
+<span class="cm">-- 1. Apple MacBook Pro     $487,200
+-- 2. Samsung 4K TV         $312,450
+-- 3. Sony Headphones       $198,700
+-- 4. Nike Running Shoes    $167,300
+-- 5. Levi's Jeans          $143,900</span></pre>
+    </div>
+    <div id="q3" class="sql-content">
+      <pre><span class="cm">-- Monthly Sales Trend</span>
+<span class="kw">SELECT</span>
+    <span class="fn">MONTH</span>(Order_Date)  <span class="kw">AS</span> Month,
+    <span class="fn">YEAR</span>(Order_Date)   <span class="kw">AS</span> Year,
+    <span class="fn">SUM</span>(Sales)         <span class="kw">AS</span> Monthly_Revenue,
+    <span class="fn">COUNT</span>(Order_ID)    <span class="kw">AS</span> Order_Count
+<span class="kw">FROM</span> retail_sales
+<span class="kw">GROUP BY</span> <span class="fn">MONTH</span>(Order_Date), <span class="fn">YEAR</span>(Order_Date)
+<span class="kw">ORDER BY</span> Year, Month;</pre>
+    </div>
+    <div id="q4" class="sql-content">
+      <pre><span class="cm">-- Profit Margin by Category</span>
+<span class="kw">SELECT</span>
+    Product_Category,
+    <span class="fn">SUM</span>(Sales)                                       <span class="kw">AS</span> Total_Sales,
+    <span class="fn">SUM</span>(Sales - Cost)                                <span class="kw">AS</span> Total_Profit,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(Sales - Cost) / <span class="fn">SUM</span>(Sales) * 100, 2)  <span class="kw">AS</span> Profit_Margin
+<span class="kw">FROM</span> retail_sales
+<span class="kw">GROUP BY</span> Product_Category
+<span class="kw">ORDER BY</span> Profit_Margin <span class="kw">DESC</span>;</pre>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value">$2.85M</div>
+      <div class="kpi-sub">12,480 orders · FY 2024</div>
+      <span class="kpi-trend trend-up">↑ 18.4% YoY</span>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Total Profit</div>
+      <div class="kpi-value">$1.02M</div>
+      <div class="kpi-sub">Gross profit after COGS</div>
+      <span class="kpi-trend trend-up">↑ 22.1% YoY</span>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">Profit Margin</div>
+      <div class="kpi-value">36.0%</div>
+      <div class="kpi-sub">Across all categories</div>
+      <span class="kpi-trend trend-mid">+1.8pp vs LY</span>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Avg Order Value</div>
+      <div class="kpi-value">$228</div>
+      <div class="kpi-sub">Per transaction</div>
+      <span class="kpi-trend trend-up">↑ 6.3% YoY</span>
+    </div>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="charts-grid">
+    <div class="chart-card wide">
+      <div class="chart-title">Monthly Sales Revenue Trend</div>
+      <div class="chart-sub">SELECT MONTH(Order_Date), SUM(Sales) FROM retail_sales GROUP BY MONTH(Order_Date)</div>
+      <div class="chart-wrapper tall">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Top 5 Products by Revenue</div>
+      <div class="chart-sub">ORDER BY SUM(Sales) DESC LIMIT 5</div>
+      <div class="chart-wrapper">
+        <canvas id="topProductsChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Profit Margin by Category</div>
+      <div class="chart-sub">ROUND(SUM(Sales-Cost)/SUM(Sales)*100,2)</div>
+      <div class="chart-wrapper">
+        <canvas id="marginChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tables Row -->
+  <div class="region-grid">
+    <div class="table-card">
+      <div class="chart-title">Regional Performance</div>
+      <div class="chart-sub" style="margin-bottom:16px">Revenue & profit contribution by region</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Region</th>
+            <th>Revenue</th>
+            <th>Profit</th>
+            <th>Margin</th>
+          </tr>
+        </thead>
+        <tbody id="regionTable"></tbody>
+      </table>
+    </div>
+
+    <div class="table-card">
+      <div class="chart-title">Top Products Breakdown</div>
+      <div class="chart-sub" style="margin-bottom:16px">Revenue share with performance bar</div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Revenue</th>
+            <th>Margin</th>
+          </tr>
+        </thead>
+        <tbody id="productTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Retail Sales Performance Dashboard · Data Source: retail_sales (CSV/MySQL) · Built with Chart.js · FY 2024
+</div>
+
+<script>
+  //*** Data ***/// ───────────────────────────────────────────────────────────────────
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthlyRevenue = [198400, 174200, 221500, 215300, 248700, 267800, 289400, 301200, 243600, 254800, 312400, 319950];
+  const monthlyProfit  = [71400,  62600,  79800,  77600,  89500,  96400, 104000, 108400,  87700,  91700, 112500, 115147];
+
+  const topProducts = [
+    { name: 'Apple MacBook Pro', rev: 487200, margin: 28 },
+    { name: 'Samsung 4K TV',     rev: 312450, margin: 32 },
+    { name: 'Sony Headphones',   rev: 198700, margin: 45 },
+    { name: 'Nike Running Shoes',rev: 167300, margin: 52 },
+    { name: "Levi's Jeans",      rev: 143900, margin: 58 },
+  ];
+
+  const categories = [
+    { name: 'Apparel',     margin: 55.2, sales: 543200 },
+    { name: 'Footwear',    margin: 50.8, sales: 312700 },
+    { name: 'Electronics', margin: 28.4, sales: 1421300 },
+    { name: 'Furniture',   margin: 38.1, sales: 570150 },
+  ];
+
+  const regions = [
+    { name: 'North',  color: '#00d4ff', rev: 812400, profit: 301500 },
+    { name: 'South',  color: '#a78bfa', rev: 698700, profit: 247200 },
+    { name: 'East',   color: '#ff6b35', rev: 754200, profit: 278400 },
+    { name: 'West',   color: '#10b981', rev: 582050, profit: 197547 },
+  ];
+
+  // ****Chart defaults****// ─────────────────────────────────────────────────────────
+  Chart.defaults.color = '#64748b';
+  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+  Chart.defaults.font.size = 11;
+
+  const gridColor = 'rgba(31,45,69,0.8)';
+
+  // ****Monthly Chart****// ──────────────────────────────────────────────────────────
+  new Chart(document.getElementById('monthlyChart'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Revenue',
+          data: monthlyRevenue,
+          borderColor: '#00d4ff',
+          backgroundColor: 'rgba(0,212,255,0.07)',
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#00d4ff',
+          pointRadius: 4,
+          pointHoverRadius: 7,
+        },
+        {
+          label: 'Profit',
+          data: monthlyProfit,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.07)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#10b981',
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          borderDash: [5,3],
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { color: '#94a3b8', padding: 20, usePointStyle: true } },
+        tooltip: {
+          backgroundColor: '#111827',
+          borderColor: '#1f2d45',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: $${(ctx.raw/1000).toFixed(1)}K`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: '#64748b' } },
+        y: {
+          grid: { color: gridColor },
+          ticks: {
+            color: '#64748b',
+            callback: v => '$' + (v/1000).toFixed(0) + 'K'
+          }
+        }
+      }
+    }
+  });
+
+  // *** Top Products Chart ***// ──────────────────────────────────────────────────────
+  new Chart(document.getElementById('topProductsChart'), {
+    type: 'bar',
+    data: {
+      labels: topProducts.map(p => p.name.length > 18 ? p.name.substring(0,16)+'…' : p.name),
+      datasets: [{
+        label: 'Revenue',
+        data: topProducts.map(p => p.rev),
+        backgroundColor: ['rgba(0,212,255,0.8)','rgba(167,139,250,0.8)','rgba(255,107,53,0.8)','rgba(16,185,129,0.8)','rgba(251,191,36,0.8)'],
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111827',
+          borderColor: '#1f2d45',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          callbacks: { label: ctx => ` $${(ctx.raw/1000).toFixed(1)}K` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: gridColor },
+          ticks: { color: '#64748b', callback: v => '$'+(v/1000).toFixed(0)+'K' }
+        },
+        y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+      }
+    }
+  });
+
+  //*** Margin Chart ***/// ────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('marginChart'), {
+    type: 'doughnut',
+    data: {
+      labels: categories.map(c => c.name),
+      datasets: [{
+        data: categories.map(c => c.margin),
+        backgroundColor: ['rgba(16,185,129,0.85)','rgba(0,212,255,0.85)','rgba(255,107,53,0.85)','rgba(167,139,250,0.85)'],
+        borderColor: '#0a0e1a',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#94a3b8', padding: 12, usePointStyle: true, pointStyleWidth: 8 }
+        },
+        tooltip: {
+          backgroundColor: '#111827',
+          borderColor: '#1f2d45',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}% margin` }
+        }
+      }
+    }
+  });
+
+  //*** Region Table ***/// ────────────────────────────────────────────────────────────
+  const regionTbody = document.getElementById('regionTable');
+  const totalRev = regions.reduce((s,r) => s+r.rev, 0);
+  regions.sort((a,b) => b.rev - a.rev).forEach(r => {
+    const margin = ((r.profit/r.rev)*100).toFixed(1);
+    const share = ((r.rev/totalRev)*100).toFixed(0);
+    const cls = margin >= 40 ? 'margin-high' : margin >= 35 ? 'margin-mid' : 'margin-low';
+    regionTbody.innerHTML += `
+      <tr>
+        <td><span class="region-dot" style="background:${r.color}"></span>${r.name}</td>
+        <td><strong>$${(r.rev/1000).toFixed(0)}K</strong> <span style="color:var(--muted);font-size:0.68rem">(${share}%)</span></td>
+        <td>$${(r.profit/1000).toFixed(0)}K</td>
+        <td><span class="margin-pill ${cls}">${margin}%</span></td>
+      </tr>`;
+  });
+
+  //*** Product Table ***/// ───────────────────────────────────────────────────────────
+  const maxRev = Math.max(...topProducts.map(p => p.rev));
+  const productTbody = document.getElementById('productTable');
+  topProducts.forEach((p, i) => {
+    const barW = Math.round((p.rev / maxRev) * 80);
+    const barColor = ['#00d4ff','#a78bfa','#ff6b35','#10b981','#fbbf24'][i];
+    const cls = p.margin >= 50 ? 'margin-high' : p.margin >= 35 ? 'margin-mid' : 'margin-low';
+    productTbody.innerHTML += `
+      <tr>
+        <td class="rank">${i+1}</td>
+        <td class="product-name">
+          <div>${p.name}</div>
+          <div style="margin-top:5px"><div class="revenue-bar" style="width:${barW}px;background:${barColor}"></div></div>
+        </td>
+        <td><strong>$${(p.rev/1000).toFixed(0)}K</strong></td>
+        <td><span class="margin-pill ${cls}">${p.margin}%</span></td>
+      </tr>`;
+  });
+
+  //*** SQL Tab Switcher ***/// ────────────────────────────────────────────────────────
+  function switchTab(el, id) {
+    document.querySelectorAll('.sql-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sql-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(id).classList.add('active');
+  }
+</script>
+</body>
+</html>
