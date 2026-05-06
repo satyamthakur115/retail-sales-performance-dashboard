@@ -6,7 +6,7 @@
 [![Tableau](https://img.shields.io/badge/Tableau-E97627?style=flat-square&logo=tableau&logoColor=white)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> A complete ETL pipeline and multi-dimensional sales analytics system for retail performance tracking — from raw transaction data to executive-level dashboards.
+> 🚀 End-to-end retail analytics system that transforms raw transaction data into actionable business insights using SQL, Python, and Tableau.
 
 ---
 
