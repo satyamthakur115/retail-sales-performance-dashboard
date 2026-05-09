@@ -13,7 +13,7 @@
 
 ## 📊 Dashboard Preview
 
-![Tableau Dashboard](data/tableau_dashboard.png)
+![Tableau Dashboard](tableau_dashboard.png)
 
 ---
 
